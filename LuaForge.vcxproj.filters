@@ -1,0 +1,180 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="Arquivos de Origem">
+      <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
+      <Extensions>cpp;c;cc;cxx;c++;cppm;ixx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
+    </Filter>
+    <Filter Include="Arquivos de Cabeçalho">
+      <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
+      <Extensions>h;hh;hpp;hxx;h++;hm;inl;inc;ipp;xsd</Extensions>
+    </Filter>
+    <Filter Include="Arquivos de Recurso">
+      <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
+      <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
+    </Filter>
+    <Filter Include="targets">
+      <UniqueIdentifier>{A1B2C3D4-E5F6-4A5B-9C8D-1E2F3A4B5C6D}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="targets\pokexgames">
+      <UniqueIdentifier>{B2C3D4E5-F6A7-5B6C-AD9E-2F3A4B5C6D7E}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="targets\otpokemon">
+      <UniqueIdentifier>{C3D4E5F6-A7B8-6C7D-BE0F-3A4B5C6D7E8F}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="targets\oncehuman">
+      <UniqueIdentifier>{D4E5F6A7-B8C9-7D8E-CF10-4B5C6D7E8F90}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="targets\shared">
+      <UniqueIdentifier>{E5F6A7B8-C9D0-8E9F-D011-5C6D7E8F90A1}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="framework.h">
+      <Filter>Arquivos de Cabeçalho</Filter>
+    </ClInclude>
+    <ClInclude Include="pch.h">
+      <Filter>Arquivos de Cabeçalho</Filter>
+    </ClInclude>
+    <ClInclude Include="MinHook\include\MinHook.h">
+      <Filter>Arquivos de Cabeçalho</Filter>
+    </ClInclude>
+    <ClInclude Include="MinHook\src\buffer.h">
+      <Filter>Arquivos de Cabeçalho</Filter>
+    </ClInclude>
+    <ClInclude Include="MinHook\src\hde\hde32.h">
+      <Filter>Arquivos de Cabeçalho</Filter>
+    </ClInclude>
+    <ClInclude Include="MinHook\src\hde\hde64.h">
+      <Filter>Arquivos de Cabeçalho</Filter>
+    </ClInclude>
+    <ClInclude Include="MinHook\src\hde\pstdint.h">
+      <Filter>Arquivos de Cabeçalho</Filter>
+    </ClInclude>
+    <ClInclude Include="MinHook\src\hde\table32.h">
+      <Filter>Arquivos de Cabeçalho</Filter>
+    </ClInclude>
+    <ClInclude Include="MinHook\src\hde\table64.h">
+      <Filter>Arquivos de Cabeçalho</Filter>
+    </ClInclude>
+    <ClInclude Include="MinHook\src\trampoline.h">
+      <Filter>Arquivos de Cabeçalho</Filter>
+    </ClInclude>
+    <ClInclude Include="IMGui\include\imconfig.h">
+      <Filter>Arquivos de Cabeçalho</Filter>
+    </ClInclude>
+    <ClInclude Include="IMGui\include\imgui.h">
+      <Filter>Arquivos de Cabeçalho</Filter>
+    </ClInclude>
+    <ClInclude Include="IMGui\include\imgui_internal.h">
+      <Filter>Arquivos de Cabeçalho</Filter>
+    </ClInclude>
+    <ClInclude Include="IMGui\include\imstb_rectpack.h">
+      <Filter>Arquivos de Cabeçalho</Filter>
+    </ClInclude>
+    <ClInclude Include="IMGui\include\imstb_textedit.h">
+      <Filter>Arquivos de Cabeçalho</Filter>
+    </ClInclude>
+    <ClInclude Include="IMGui\include\imstb_truetype.h">
+      <Filter>Arquivos de Cabeçalho</Filter>
+    </ClInclude>
+    <ClInclude Include="IMGui\include\imgui_impl_dx11.h">
+      <Filter>Arquivos de Cabeçalho</Filter>
+    </ClInclude>
+    <ClInclude Include="IMGui\include\imgui_impl_win32.h">
+      <Filter>Arquivos de Cabeçalho</Filter>
+    </ClInclude>
+    <ClInclude Include="targets\pokexgames\PxG.h">
+      <Filter>targets\pokexgames</Filter>
+    </ClInclude>
+    <ClInclude Include="targets\otpokemon\OTP.h">
+      <Filter>targets\otpokemon</Filter>
+    </ClInclude>
+    <ClInclude Include="targets\oncehuman\OH.h">
+      <Filter>targets\oncehuman</Filter>
+    </ClInclude>
+    <ClInclude Include="targets\shared\LuaUtils.h">
+      <Filter>targets\shared</Filter>
+    </ClInclude>
+    <ClInclude Include="targets\shared\Overlay.h">
+      <Filter>targets\shared</Filter>
+    </ClInclude>
+    <ClInclude Include="targets\shared\AobScanner.h">
+      <Filter>Arquivos de Cabeçalho</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="dllmain.cpp">
+      <Filter>Arquivos de Origem</Filter>
+    </ClCompile>
+    <ClCompile Include="targets\shared\LuaUtils.cpp">
+      <Filter>targets\shared</Filter>
+    </ClCompile>
+    <ClCompile Include="targets\shared\Overlay.cpp">
+      <Filter>targets\shared</Filter>
+    </ClCompile>
+    <ClCompile Include="targets\pokexgames\PxG_Lua.cpp">
+      <Filter>targets\pokexgames</Filter>
+    </ClCompile>
+    <ClCompile Include="targets\pokexgames\PxG_Hooks.cpp">
+      <Filter>targets\pokexgames</Filter>
+    </ClCompile>
+    <ClCompile Include="targets\pokexgames\PxG_Init.cpp">
+      <Filter>targets\pokexgames</Filter>
+    </ClCompile>
+    <ClCompile Include="targets\otpokemon\OTP_Lua.cpp">
+      <Filter>targets\otpokemon</Filter>
+    </ClCompile>
+    <ClCompile Include="targets\otpokemon\OTP_Hooks.cpp">
+      <Filter>targets\otpokemon</Filter>
+    </ClCompile>
+    <ClCompile Include="targets\otpokemon\OTP_Init.cpp">
+      <Filter>targets\otpokemon</Filter>
+    </ClCompile>
+    <ClCompile Include="targets\oncehuman\OH_Python.cpp">
+      <Filter>targets\oncehuman</Filter>
+    </ClCompile>
+    <ClCompile Include="targets\oncehuman\OH_Init.cpp">
+      <Filter>targets\oncehuman</Filter>
+    </ClCompile>
+    <ClCompile Include="MinHook\src\buffer.c">
+      <Filter>Arquivos de Origem</Filter>
+    </ClCompile>
+    <ClCompile Include="MinHook\src\hde\hde32.c">
+      <Filter>Arquivos de Origem</Filter>
+    </ClCompile>
+    <ClCompile Include="MinHook\src\hde\hde64.c">
+      <Filter>Arquivos de Origem</Filter>
+    </ClCompile>
+    <ClCompile Include="MinHook\src\hook.c">
+      <Filter>Arquivos de Origem</Filter>
+    </ClCompile>
+    <ClCompile Include="MinHook\src\trampoline.c">
+      <Filter>Arquivos de Origem</Filter>
+    </ClCompile>
+    <ClCompile Include="IMGui\src\imgui.cpp">
+      <Filter>Arquivos de Origem</Filter>
+    </ClCompile>
+    <ClCompile Include="IMGui\src\imgui_demo.cpp">
+      <Filter>Arquivos de Origem</Filter>
+    </ClCompile>
+    <ClCompile Include="IMGui\src\imgui_draw.cpp">
+      <Filter>Arquivos de Origem</Filter>
+    </ClCompile>
+    <ClCompile Include="IMGui\src\imgui_tables.cpp">
+      <Filter>Arquivos de Origem</Filter>
+    </ClCompile>
+    <ClCompile Include="IMGui\src\imgui_widgets.cpp">
+      <Filter>Arquivos de Origem</Filter>
+    </ClCompile>
+    <ClCompile Include="IMGui\src\imgui_impl_dx11.cpp">
+      <Filter>Arquivos de Origem</Filter>
+    </ClCompile>
+    <ClCompile Include="IMGui\src\imgui_impl_win32.cpp">
+      <Filter>Arquivos de Origem</Filter>
+    </ClCompile>
+    <ClCompile Include="targets\shared\AobScanner.cpp">
+      <Filter>Arquivos de Origem</Filter>
+    </ClCompile>
+  </ItemGroup>
+</Project>
