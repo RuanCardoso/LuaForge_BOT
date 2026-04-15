@@ -8,8 +8,8 @@ void OH_Init(HMODULE hModule);
 // ================================================================
 // Seletor de Target - descomente APENAS UMA das linhas abaixo:
 // ================================================================
-#define TARGET_POKEXGAMES
-//#define TARGET_OTPOKEMON
+//#define TARGET_POKEXGAMES
+#define TARGET_OTPOKEMON
 //#define TARGET_ONCEHUMAN
 // ================================================================
 

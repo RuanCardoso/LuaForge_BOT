@@ -42,7 +42,7 @@ namespace shared {
 // ================================================================
 
 static constexpr int OVERLAY_W = 500;
-static constexpr int OVERLAY_H = 370;
+static constexpr int OVERLAY_H = 420;
 
 static FnExecuteLua            g_executeFn;
 static bool                    g_running      = false;
@@ -166,9 +166,168 @@ static void AplicarEstilo()
 // Conteúdo do overlay
 // ================================================================
 
+// ================================================================
+// Aba: Docs — referência de todas as funções Lua disponíveis
+// ================================================================
+
+static void RenderDocsTab()
+{
+    // Cores reutilizadas
+    const ImVec4 cFunc  = ImVec4(0.70f, 0.58f, 1.00f, 1.0f); // nome da função — roxo claro
+    const ImVec4 cParam = ImVec4(0.55f, 0.85f, 0.65f, 1.0f); // parâmetros — verde claro
+    const ImVec4 cDesc  = ImVec4(0.65f, 0.63f, 0.72f, 1.0f); // descrição — cinza
+    const ImVec4 cCat   = ImVec4(0.55f, 0.45f, 0.90f, 1.0f); // cabeçalho de categoria
+
+    // Macro local para uma linha de função
+    // Uso: DOC_ROW("clog", "(str)", "Prints str to the debug console")
+    auto docRow = [&](const char* name, const char* sig, const char* desc) {
+        ImGui::PushStyleColor(ImGuiCol_Text, cFunc);
+        ImGui::TextUnformatted(name);
+        ImGui::PopStyleColor();
+        ImGui::SameLine(0, 0);
+        ImGui::PushStyleColor(ImGuiCol_Text, cParam);
+        ImGui::TextUnformatted(sig);
+        ImGui::PopStyleColor();
+        ImGui::SameLine(180.0f);
+        ImGui::PushStyleColor(ImGuiCol_Text, cDesc);
+        ImGui::TextUnformatted(desc);
+        ImGui::PopStyleColor();
+    };
+
+    auto catHeader = [&](const char* label) {
+        ImGui::Spacing();
+        ImGui::PushStyleColor(ImGuiCol_Text, cCat);
+        ImGui::TextUnformatted(label);
+        ImGui::PopStyleColor();
+        ImGui::PushStyleColor(ImGuiCol_Separator, ImVec4(0.30f, 0.24f, 0.50f, 1.0f));
+        ImGui::Separator();
+        ImGui::PopStyleColor();
+        ImGui::Spacing();
+    };
+
+    ImGui::PushStyleColor(ImGuiCol_ChildBg, ImVec4(0.04f, 0.04f, 0.07f, 1.0f));
+    ImGui::BeginChild("##docs", ImVec2(-1.0f, -1.0f), false, ImGuiWindowFlags_HorizontalScrollbar);
+
+    // ── Lifecycle ──────────────────────────────────────────────
+    catHeader("  Lifecycle");
+    docRow("Update", "()",               "Called every game tick if defined");
+
+    // ── Debug ──────────────────────────────────────────────────
+    catHeader("  Debug");
+    docRow("clog",   "(str)",            "Prints str to the debug console");
+
+    // ── Keyboard ───────────────────────────────────────────────
+    catHeader("  Keyboard");
+    docRow("ckey",   "(vk)",             "PostMessage WM_KEYDOWN/UP  (no focus needed)");
+
+    // ── Mouse — real ───────────────────────────────────────────
+    catHeader("  Mouse  (real — requires focus)");
+    docRow("cmove",  "(x, y)",           "SetCursorPos — moves system cursor");
+    docRow("cclick", "(btn)",            "SendInput click  1=L  2=R  3=M");
+
+    // ── Mouse v1 ───────────────────────────────────────────────
+    catHeader("  Mouse v1  (PostMessage — background)");
+    docRow("mmove",  "(x, y)",           "WM_MOUSEMOVE, stores pos for mclick");
+    docRow("mclick", "(btn)",            "WM_LBUTTONDOWN/UP  (uses mmove pos)");
+
+    // ── Mouse v2 ───────────────────────────────────────────────
+    catHeader("  Mouse v2  (SendMessage — sync)");
+    docRow("mmove2", "(x, y)",           "SendMessage WM_MOUSEMOVE");
+    docRow("mclick2","(btn)",            "SendMessage click  (blocks until processed)");
+
+    // ── Mouse v3 ───────────────────────────────────────────────
+    catHeader("  Mouse v3  (SendInput absolute)");
+    docRow("mmove3", "(x, y)",           "SendInput MOUSEEVENTF_ABSOLUTE");
+    docRow("mclick3","(btn)",            "PostMessage click  (uses mmove3 pos)");
+
+    // ── Memory read ────────────────────────────────────────────
+    catHeader("  Memory  (read)");
+    docRow("rmem",   "(addr)",           "Read int32 at address");
+    docRow("rmemf",  "(addr)",           "Read float32 at address");
+    docRow("rmems",  "(addr, len)",      "Read string of len bytes, prints to console");
+
+    // ── Memory write ───────────────────────────────────────────
+    catHeader("  Memory  (write)");
+    docRow("wmem",   "(addr, val)",      "Write int32  (removes page protection)");
+    docRow("wmemf",  "(addr, val)",      "Write float32");
+    docRow("wmems",  "(addr, str)",      "Write null-terminated string");
+
+    // ── Window ─────────────────────────────────────────────────
+    catHeader("  Window");
+    docRow("wsize",  "()",               "Returns  width, height  of client area");
+    docRow("wpos",   "()",               "Returns  x, y  of window on screen");
+    docRow("cpos",   "()",               "Returns  x, y  of system cursor");
+
+    ImGui::EndChild();
+    ImGui::PopStyleColor();
+}
+
+// ================================================================
+// Aba: Script — editor + botão executar
+// ================================================================
+
+static void RenderScriptTab()
+{
+    ImGui::Spacing();
+
+    /* ---- Editor de código Lua ---- */
+    ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0.05f, 0.05f, 0.08f, 1.0f));
+    ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 6.0f);
+
+    ImGui::InputTextMultiline(
+        "##lua_editor",
+        g_scriptBuffer,
+        sizeof(g_scriptBuffer),
+        ImVec2(-1.0f, 282.0f),
+        ImGuiInputTextFlags_AllowTabInput
+    );
+
+    ImGui::PopStyleVar();
+    ImGui::PopStyleColor();
+    ImGui::Spacing();
+
+    /* ---- Botão Executar ---- */
+    ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 6.0f);
+    ImGui::PushStyleColor(ImGuiCol_Button,        ImVec4(0.24f, 0.18f, 0.46f, 1.0f));
+    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.38f, 0.29f, 0.68f, 1.0f));
+    ImGui::PushStyleColor(ImGuiCol_ButtonActive,  ImVec4(0.50f, 0.39f, 0.84f, 1.0f));
+
+    const bool executar = ImGui::Button("  Execute  ", ImVec2(-1.0f, 34.0f));
+
+    ImGui::PopStyleColor(3);
+    ImGui::PopStyleVar();
+    ImGui::Spacing();
+
+    if (executar) {
+        if (g_executeFn && g_scriptBuffer[0] != '\0') {
+            g_executeFn(g_scriptBuffer);
+            g_statusMsg   = "[+] Script queued for execution";
+            g_statusError = false;
+        }
+        else {
+            g_statusMsg   = "[!] Editor is empty — write a script first";
+            g_statusError = true;
+        }
+    }
+
+    /* ---- Barra de status ---- */
+    if (!g_statusMsg.empty()) {
+        ImGui::Separator();
+        ImGui::Spacing();
+        ImGui::PushStyleColor(ImGuiCol_Text, g_statusError
+            ? ImVec4(1.00f, 0.40f, 0.40f, 1.0f)
+            : ImVec4(0.40f, 1.00f, 0.60f, 1.0f));
+        ImGui::TextUnformatted(g_statusMsg.c_str());
+        ImGui::PopStyleColor();
+    }
+}
+
+// ================================================================
+// RenderOverlay — janela principal com tab bar
+// ================================================================
+
 static void RenderOverlay()
 {
-    /* Ocupa toda a janela Win32 dedicada */
     ImGui::SetNextWindowPos(ImVec2(0.0f, 0.0f), ImGuiCond_Always);
     ImGui::SetNextWindowSize(ImVec2((float)OVERLAY_W, (float)OVERLAY_H), ImGuiCond_Always);
 
@@ -183,68 +342,28 @@ static void RenderOverlay()
         return;
     }
 
-    /* ---- Rótulo da área de código ---- */
-    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.55f, 0.45f, 0.90f, 1.0f));
-    ImGui::TextUnformatted("  Script");
-    ImGui::PopStyleColor();
-    ImGui::SameLine();
-    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.35f, 0.33f, 0.45f, 1.0f));
-    ImGui::TextUnformatted("(Tab para indentar)");
-    ImGui::PopStyleColor();
-    ImGui::Spacing();
+    /* ---- Tab bar ---- */
+    ImGui::PushStyleColor(ImGuiCol_Tab,               ImVec4(0.10f, 0.09f, 0.17f, 1.0f));
+    ImGui::PushStyleColor(ImGuiCol_TabHovered,        ImVec4(0.28f, 0.21f, 0.50f, 1.0f));
+    ImGui::PushStyleColor(ImGuiCol_TabActive,         ImVec4(0.22f, 0.16f, 0.42f, 1.0f));
+    ImGui::PushStyleColor(ImGuiCol_TabUnfocusedActive,ImVec4(0.16f, 0.12f, 0.30f, 1.0f));
 
-    /* ---- Editor de código Lua ---- */
-    ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0.05f, 0.05f, 0.08f, 1.0f));
-    ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 6.0f);
+    if (ImGui::BeginTabBar("##tabs")) {
 
-    ImGui::InputTextMultiline(
-        "##lua_editor",
-        g_scriptBuffer,
-        sizeof(g_scriptBuffer),
-        ImVec2(-1.0f, 252.0f),
-        ImGuiInputTextFlags_AllowTabInput
-    );
-
-    ImGui::PopStyleVar();
-    ImGui::PopStyleColor();
-    ImGui::Spacing();
-
-    /* ---- Botão Executar ---- */
-    ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 6.0f);
-    ImGui::PushStyleColor(ImGuiCol_Button,        ImVec4(0.24f, 0.18f, 0.46f, 1.0f));
-    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.38f, 0.29f, 0.68f, 1.0f));
-    ImGui::PushStyleColor(ImGuiCol_ButtonActive,  ImVec4(0.50f, 0.39f, 0.84f, 1.0f));
-
-    const bool executar = ImGui::Button("  Executar  ", ImVec2(-1.0f, 34.0f));
-
-    ImGui::PopStyleColor(3);
-    ImGui::PopStyleVar();
-    ImGui::Spacing();
-
-    if (executar) {
-        if (g_executeFn && g_scriptBuffer[0] != '\0') {
-            g_executeFn(g_scriptBuffer);
-            g_statusMsg   = "[+] Script enfileirado para execucao";
-            g_statusError = false;
+        if (ImGui::BeginTabItem("  Script  ")) {
+            RenderScriptTab();
+            ImGui::EndTabItem();
         }
-        else {
-            g_statusMsg   = "[!] Editor vazio — escreva um script primeiro";
-            g_statusError = true;
+
+        if (ImGui::BeginTabItem("  Docs  ")) {
+            RenderDocsTab();
+            ImGui::EndTabItem();
         }
+
+        ImGui::EndTabBar();
     }
 
-    /* ---- Barra de status ---- */
-    if (!g_statusMsg.empty()) {
-        ImGui::Spacing();
-        ImGui::Separator();
-        ImGui::Spacing();
-        const ImVec4 cor = g_statusError
-            ? ImVec4(1.00f, 0.40f, 0.40f, 1.0f)
-            : ImVec4(0.40f, 1.00f, 0.60f, 1.0f);
-        ImGui::PushStyleColor(ImGuiCol_Text, cor);
-        ImGui::TextUnformatted(g_statusMsg.c_str());
-        ImGui::PopStyleColor();
-    }
+    ImGui::PopStyleColor(4);
 
     ImGui::End();
 }
@@ -295,8 +414,8 @@ static DWORD WINAPI OverlayThread(LPVOID)
     /* ---- Cria device D3D11 e swap chain exclusivos ---- */
     DXGI_SWAP_CHAIN_DESC sd          = {};
     sd.BufferCount                   = 2;
-    sd.BufferDesc.Width              = OVERLAY_W;
-    sd.BufferDesc.Height             = OVERLAY_H;
+    sd.BufferDesc.Width              = (UINT)OVERLAY_W;
+    sd.BufferDesc.Height             = (UINT)OVERLAY_H;
     sd.BufferDesc.Format             = DXGI_FORMAT_R8G8B8A8_UNORM;
     sd.BufferDesc.RefreshRate.Numerator   = 60;
     sd.BufferDesc.RefreshRate.Denominator = 1;
