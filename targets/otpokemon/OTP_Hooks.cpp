@@ -250,7 +250,7 @@ bool InstallHooks()
     g_ctx.fnToInteger   = reinterpret_cast<FnToInteger>  (shared::AobScan("55 8B EC 83 E4 ? 83 EC ? FF 75 ? FF 75 ? E8 ? ? ? ? 83 C4 ? 8B 48 ? 83 F9 ? 73 ? ? ? ? ? F2 0F 2C C0 8B E5 5D C3 83 F9 ? 75 ? ? ? ? ? ? E8 ? ? ? ? 85 C0 74 ? ? ? ? ? ? F2 0F 2C C0 8B E5 5D C3 33 C0"));
     g_ctx.fnPCall       = reinterpret_cast<FnPCall>      (shared::AobScan("8B 54 24 ? 8B 44 24 ? 53 56"));
     g_ctx.fnLoadFile    = reinterpret_cast<FnLoadFile>   (shared::AobScan("55 8B EC 83 E4 ? 81 EC ? ? ? ? A1 ? ? ? ? 33 C4 89 84 24 ? ? ? ? 56 8B 75 ? 57 8B 7D"));
-    void* addrLoadBuffer = reinterpret_cast<void*>(shared::AobScan("55 8B EC 83 E4 ? 81 EC ? ? ? ? 8B 45 ? B9 ? ? ? ? 89 44 24 ? 8B 45 ? 89 44 24 ? 8D 44 24 ? 56"));
+    void* addrLoadBuffer = reinterpret_cast<void*>(shared::AobScan("55 8B EC 8B 45 ? 8B 0D ? ? ? ? 85 C9"));
     void* addrTick       = reinterpret_cast<void*>(shared::AobScan("55 8B EC 51 51 8D 45 ? 50 FF 15"));
 
     if (!g_ctx.fnToLString  || !g_ctx.fnPushClosure || !g_ctx.fnSetField  ||
