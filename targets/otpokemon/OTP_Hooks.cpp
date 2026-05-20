@@ -317,15 +317,15 @@ bool InstallHooks()
     // Scan finds sub_13E8320 (trampoline: "jmp sub_13C1810").
     // Follow the E9 rel32 to resolve the real dispatcher address (sub_13C1810).
     const uintptr_t addrTrampoline = shared::AobScan(
-        "E9 ? ? ? ? F8 81 EC ? ? ? ? 8B 45 ? B9 ? ? ? ? 89 44 24 ? "
-        "8B 45 ? 89 44 24 ? 8D 44 24");
+        "E9 ? ? ? ? F8 81 EC ? ? ? ? 8B 45 ? B9 ? ? ? ? 89 44 24 ? 8B 45 ? 89 44 24 ? 8D 44 24");
+
     void* addrLoadBuffer = nullptr;
     if (addrTrampoline) {
         const int32_t rel = *reinterpret_cast<const int32_t*>(addrTrampoline + 1);
         addrLoadBuffer = reinterpret_cast<void*>(addrTrampoline + 5 + rel);
     }
-    void* addrTick       = reinterpret_cast<void*>(shared::AobScan("55 8B EC 51 51 8D 45 ? 50 FF 15"));
 
+    void* addrTick       = reinterpret_cast<void*>(shared::AobScan("55 8B EC 51 51 8D 45 ? 50 FF 15"));
     if (!g_ctx.fnToLString  || !g_ctx.fnPushClosure || !g_ctx.fnSetField ||
         !g_ctx.fnToInteger  || !g_ctx.fnPCall        ||
         !addrLoadBuffer     || !addrTick) {
