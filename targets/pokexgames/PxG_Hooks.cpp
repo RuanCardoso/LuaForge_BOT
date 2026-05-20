@@ -31,23 +31,12 @@ int g_mouseY = 0;
 // Estado interno dos hooks
 // ================================================================
 
-/* Prevents registering Lua functions more than once */
 static bool s_functionsRegistered = false;
-
-/* Rising-edge control for F5 (fires only once per press) */
-static bool s_f5Pressed = false;
 
 // ================================================================
 // Execução de scripts externos
 // ================================================================
 
-/**
- * @brief Enfileira código Lua (string) para execução na próxima iteração da thread Lua.
- *
- * Chamado pelo overlay quando o usuário clica em "Executar".
- * A execução ocorre em Hook_Tick, dentro da thread Lua correta.
- * @param code String de código Lua terminada em '\0'
- */
 void ExecuteString(const char* code)
 {
     if (!g_ctx.luaState) {
@@ -57,12 +46,6 @@ void ExecuteString(const char* code)
     g_ctx.pendingCode = code;
 }
 
-/**
- * @brief Compila e executa o código Lua pendente via luaL_loadstring + lua_pcall.
- *
- * Deve ser chamado exclusivamente de dentro da thread Lua.
- * Usa luaL_loadstring (= luaL_loadbuffer com strlen) para compilar o chunk.
- */
 static void ProcessPendingCode()
 {
     if (g_ctx.pendingCode.empty() || !g_ctx.luaState) return;
@@ -72,7 +55,10 @@ static void ProcessPendingCode()
 
     std::printf("[*] PxG: executando codigo do overlay (%zu bytes)\n", code.size());
 
-    const int loadResult = g_ctx.fnLoadString(g_ctx.luaState, code.c_str());
+    const int loadResult = g_ctx.fnLoadBuffer(g_ctx.luaState,
+                                              reinterpret_cast<__int64>(code.c_str()),
+                                              static_cast<__int64>(code.size()),
+                                              "=(menu)", 0);
     if (loadResult != 0) {
         const char* err = reinterpret_cast<const char*>(
             g_ctx.fnToLString(g_ctx.luaState, (unsigned int)-1, nullptr));
@@ -80,75 +66,6 @@ static void ProcessPendingCode()
         return;
     }
 
-    const int execResult = g_ctx.fnPCall(g_ctx.luaState, 0, LUA_MULTRET, 0);
-    if (execResult == 0)
-        std::printf("[+] PxG: execucao concluida\n");
-    else {
-        const char* err = reinterpret_cast<const char*>(
-            g_ctx.fnToLString(g_ctx.luaState, (unsigned int)-1, nullptr));
-        std::printf("[-] PxG: erro de execucao: %s\n", err ? err : "desconhecido");
-    }
-}
-
-/**
- * @brief Enfileira um arquivo de script para execução na thread Lua.
- *
- * O arquivo não é executado imediatamente. É armazenado em
- * g_ctx.pendingFile and processed by ProcessPendingFile()
- * na próxima iteração da thread Lua.
- *
- * @param path Caminho absoluto do arquivo .txt com código Lua
- */
-void ExecuteFile(const char* path)
-{
-    if (!g_ctx.luaState) {
-        std::printf("[-] PxG: lua_State ainda nao foi capturado\n");
-        return;
-    }
-    g_ctx.pendingFile = path;
-}
-
-/**
- * @brief Carrega e executa o arquivo de script Lua pendente.
- *
- * Deve ser chamado exclusivamente de dentro da thread Lua.
- * Lê o arquivo do disco, carrega com luaL_loadstring e executa com lua_pcall.
- */
-static void ProcessPendingFile()
-{
-    if (!g_ctx.pendingFile || !g_ctx.luaState) return;
-
-    const char* path  = g_ctx.pendingFile;
-    g_ctx.pendingFile = nullptr;
-
-    // Abre o arquivo de script em modo binário
-    FILE* f = nullptr;
-    fopen_s(&f, path, "rb");
-    if (!f) {
-        std::printf("[-] PxG: nao foi possivel abrir '%s'\n", path);
-        return;
-    }
-    fseek(f, 0, SEEK_END);
-    long fsize = ftell(f);
-    fseek(f, 0, SEEK_SET);
-
-    std::string src(fsize, '\0');
-    fread(src.data(), 1, fsize, f);
-    fclose(f);
-
-    std::printf("[*] PxG: carregando '%s' (%ld bytes)\n", path, fsize);
-
-    // Compila o código Lua
-    const int loadResult = g_ctx.fnLoadString(g_ctx.luaState, src.c_str());
-    if (loadResult != 0) {
-        const char* err = reinterpret_cast<const char*>(
-            g_ctx.fnToLString(g_ctx.luaState, (unsigned int)-1, nullptr));
-        std::printf("[-] PxG: erro de compilacao: %s\n", err ? err : "desconhecido");
-        return;
-    }
-
-    // Executa o chunk compilado
-    std::printf("[*] PxG: executando...\n");
     const int execResult = g_ctx.fnPCall(g_ctx.luaState, 0, LUA_MULTRET, 0);
     if (execResult == 0)
         std::printf("[+] PxG: execucao concluida\n");
@@ -211,60 +128,30 @@ static void RegisterLuaFunctions()
 // Callbacks de hook
 // ================================================================
 
-/**
- * @brief Chama a função global Update() se ela estiver definida no script Lua.
- *
- * Executada a cada tick, dentro da thread Lua.
- * Usa "if Update then Update() end" para ignorar silenciosamente quando
- * Update não foi definido pelo script do usuário.
- * A compilação da string é mínima (~27 bytes) e cacheada internamente
- * pelo Lua como chunk reutilizável.
- */
 static void CallUpdate()
 {
     if (!g_ctx.luaState || !s_functionsRegistered) return;
 
     static const char s_chunk[] = "if Update then Update() end";
 
-    const int lr = g_ctx.fnLoadString(g_ctx.luaState, s_chunk);
+    const int lr = g_ctx.fnLoadBuffer(g_ctx.luaState,
+                                      reinterpret_cast<__int64>(s_chunk),
+                                      sizeof(s_chunk) - 1,
+                                      "=(update)", 0);
     if (lr != 0) {
-        // erro de compilação (não deve ocorrer com chunk fixo)
         g_ctx.fnToLString(g_ctx.luaState, (unsigned int)-1, nullptr);
         return;
     }
-    // pcall sem args, sem retorno, sem handler — erros dentro de Update()
-    // aparecem no console via o mecanismo normal de erro do Lua
     g_ctx.fnPCall(g_ctx.luaState, 0, 0, 0);
 }
 
-/**
- * @brief Hook da função tick do jogo (executada a cada frame/iteração).
- *
- * Fluxo de execução:
- *   1. Detecta borda de subida de F5 → enfileira C:\test.txt
- *   2. Se estiver na thread Lua: registra funções (uma vez) e processa scripts
- *   3. Chama Update() se definida no script Lua
- *   4. Chama a função tick original
- */
 LONGLONG __fastcall Hook_Tick()
 {
-    // F5 rising-edge detection — fires only once per press
-    bool f5Now = (GetAsyncKeyState(VK_F5) & 0x8000) != 0;
-    if (f5Now && !s_f5Pressed) {
-        s_f5Pressed = true;
-        std::printf("[*] PxG: F5 — loading C:\\test.txt\n");
-        ExecuteFile("C:\\test.txt");
-    }
-    else if (!f5Now) {
-        s_f5Pressed = false;
-    }
-
     if (IsLuaThread()) {
         if (!s_functionsRegistered && g_ctx.luaState) {
             s_functionsRegistered = true;
             RegisterLuaFunctions();
         }
-        ProcessPendingFile();
         ProcessPendingCode();
         CallUpdate();
     }
@@ -313,7 +200,6 @@ bool InstallHooks()
 
     g_ctx.baseAddress = reinterpret_cast<uintptr_t>(GetModuleHandle(nullptr));
 
-    g_ctx.fnLoadString  = reinterpret_cast<FnLoadString> (shared::AobScan("56 53 48 83 EC ? 48 89 CE 48 89 D1 48 89 D3 E8 ? ? ? ? 49 89 D9"));
     g_ctx.fnToLString   = reinterpret_cast<FnToLString>  (shared::AobScan("55 57 56 53 48 83 EC ? 89 D6 48 89 CF 4C 89 C3 E8 ? ? ? ? ? ? ? 48 89 C2 48 C1 FA ? 83 FA ? 75 ? 48 BA ? ? ? ? ? ? ? ? 48 21 D0 48 85 DB 74 ? 8B 78 ? ? ? ? 48 83 C0 ? 48 83 C4 ? 5B 5E 5F 5D C3"));
     g_ctx.fnPushClosure = reinterpret_cast<FnPushCClosure>(shared::AobScan("55 57 56 53 48 83 EC ? 48 8B 41 ? 48 89 CB 48 89 D7 48 8B 48"));
     g_ctx.fnSetField    = reinterpret_cast<FnSetField>   (shared::AobScan("57 56 53 48 83 EC ? 4C 89 C6 48 89 CB E8 ? ? ? ? 48 89 F1 48 89 C7 E8 ? ? ? ? 48 89 F2 48 89 D9 49 89 C0 E8 ? ? ? ? 4C 8D 44 24 ? 48 89 D9 48 BA ? ? ? ? ? ? ? ? 48 09 D0 48 89 FA 48 89 44 24 ? E8 ? ? ? ? 48 8B 53 ? 48 85 C0 74 ? 48 8D 4A"));
@@ -322,8 +208,8 @@ bool InstallHooks()
     void* addrLoadBuffer = reinterpret_cast<void*>(shared::AobScan("57 56 53 48 81 EC ? ? ? ? 48 8D 05 ? ? ? ? 66 0F EF C0 4D 85 C9"));
     void* addrTick       = reinterpret_cast<void*>(shared::AobScan("53 48 83 EC ? 8B 05 ? ? ? ? 48 8B 1D"));
 
-    if (!g_ctx.fnLoadString || !g_ctx.fnToLString || !g_ctx.fnPushClosure ||
-        !g_ctx.fnSetField   || !g_ctx.fnToInteger  || !g_ctx.fnPCall      ||
+    if (!g_ctx.fnToLString  || !g_ctx.fnPushClosure || !g_ctx.fnSetField ||
+        !g_ctx.fnToInteger  || !g_ctx.fnPCall        ||
         !addrLoadBuffer     || !addrTick) {
         std::printf("[-] PxG: um ou mais AOB scans falharam\n");
         return false;

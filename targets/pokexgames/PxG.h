@@ -32,7 +32,6 @@ constexpr int LUA_MULTRET = -1;
 
 /* PokeXgAMES usa a convenção __fastcall no seu interpretador Lua */
 using LuaCFunction   = int(__fastcall*)(lua_State* L);
-using FnLoadString   = __int64(__fastcall*)(lua_State* L, const char* s);
 using FnPushCClosure = uint64_t(__fastcall*)(lua_State* L, LuaCFunction fn, unsigned int n);
 using FnSetField     = unsigned __int64*(__fastcall*)(lua_State* L, __int64 idx, const char* name);
 using FnToInteger    = __int64(__fastcall*)(lua_State* L, __int64 idx);
@@ -47,7 +46,6 @@ using FnTick         = LONGLONG(__fastcall*)();
 // em runtime pois os RVAs variam entre execuções.
 // ================================================================
 
-// OFF_LOADSTRING  ~ 0x9EEA70 | 56 53 48 83 EC ? 48 89 CE 48 89 D1 48 89 D3 E8 ? ? ? ? 49 89 D9
 // OFF_TOSTRING    ~ 0x9E5B00 | 55 57 56 53 48 83 EC ? 89 D6 48 89 CF 4C 89 C3 E8 ? ? ? ? ? ? ? 48 89 C2 48 C1 FA ? 83 FA ? 75 ? 48 BA ? ? ? ? ? ? ? ? 48 21 D0 48 85 DB 74 ? 8B 78 ? ? ? ? 48 83 C0 ? 48 83 C4 ? 5B 5E 5F 5D C3
 // OFF_CCLOSURE    ~ 0x9E88D0 | 55 57 56 53 48 83 EC ? 48 8B 41 ? 48 89 CB 48 89 D7 48 8B 48
 // OFF_SETFIELD    ~ 0x9EAAD0 | 57 56 53 48 83 EC ? 4C 89 C6 48 89 CB E8 ? ? ? ? 48 89 F1 48 89 C7 E8 ? ? ? ? 48 89 F2 48 89 D9 49 89 C0 E8 ? ? ? ? 4C 8D 44 24 ? 48 89 D9 48 BA ? ? ? ? ? ? ? ? 48 09 D0 48 89 FA 48 89 44 24 ? E8 ? ? ? ? 48 8B 53 ? 48 85 C0 74 ? 48 8D 4A
@@ -73,11 +71,9 @@ struct Context {
     uintptr_t      baseAddress   = 0;        // endereço base do módulo do jogo
     lua_State*     luaState      = nullptr;  // ponteiro para o estado Lua capturado
     DWORD          luaThreadId   = 0;        // ID da thread que executa Lua
-    const char*    pendingFile   = nullptr;  // script aguardando execução
     std::string    pendingCode   = {};       // código Lua aguardando execução (via overlay)
 
     // Ponteiros de função — resolvidos via AOB em InstallHooks()
-    FnLoadString   fnLoadString  = nullptr;  // luaL_loadstring
     FnPushCClosure fnPushClosure = nullptr;  // lua_pushcclosure
     FnSetField     fnSetField    = nullptr;  // lua_setfield
     FnToInteger    fnToInteger   = nullptr;  // lua_tointeger
@@ -101,7 +97,7 @@ extern int g_mouseY;
 /* Retorna true se a thread atual é a que executa Lua */
 bool IsLuaThread();
 
-/* Enfileira código Lua (string) para execução na próxima iteração da thread Lua */
+/* Enfileira código Lua para execução na próxima iteração da thread Lua */
 void ExecuteString(const char* code);
 
 // ================================================================
@@ -131,9 +127,6 @@ int __fastcall Lua_GetCursorPos  (lua_State* L); // cpos()
 // ================================================================
 // Gerenciamento de hooks (implementado em PxG_Hooks.cpp)
 // ================================================================
-
-/* Enfileira um script para execução na próxima iteração da thread Lua */
-void ExecuteFile(const char* path);
 
 /* Escaneia AOB e instala hooks via MinHook. Retorna true em caso de sucesso. */
 bool InstallHooks();

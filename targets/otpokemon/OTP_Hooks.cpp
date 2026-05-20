@@ -2,8 +2,7 @@
  * OTP_Hooks.cpp - Hook management and context for OT Pokemon
  *
  * Differences from PxG_Hooks.cpp:
- *   - Scripts loaded with luaL_loadfile (no prior file read in C++)
- *   - Supports 4 hotkeys: F5→test1.txt, F6→test2.txt, F7→test3.txt, F8→test4.txt
+ *   - Scripts executed only via ExecuteString (menu textbox) — no file loading
  *   - FnTick returns LARGE_INTEGER (not LONGLONG)
  *   - Hook_LoadBuffer has 4 parameters (no fifth __int64 a5 like PxG)
  */
@@ -26,12 +25,6 @@ int g_mouseY = 0;
 // ================================================================
 
 static bool s_functionsRegistered = false;
-
-/* Rising-edge control for each hotkey */
-static bool s_f5Pressed = false;
-static bool s_f6Pressed = false;
-static bool s_f7Pressed = false;
-static bool s_f8Pressed = false;
 
 // ================================================================
 // External script execution
@@ -58,48 +51,13 @@ static void ProcessPendingCode()
     const int loadResult = g_ctx.fnLoadBuffer(g_ctx.luaState,
                                               code.c_str(),
                                               code.size(),
-                                              code.c_str());
+                                              "=(menu)");
     if (loadResult != 0) {
         const char* err = g_ctx.fnToLString(g_ctx.luaState, -1, nullptr);
         std::printf("[-] OTP: compile error: %s\n", err ? err : "unknown");
         return;
     }
 
-    const int execResult = g_ctx.fnPCall(g_ctx.luaState, 0, LUA_MULTRET, 0);
-    if (execResult == 0)
-        std::printf("[+] OTP: execution finished\n");
-    else {
-        const char* err = g_ctx.fnToLString(g_ctx.luaState, -1, nullptr);
-        std::printf("[-] OTP: runtime error: %s\n", err ? err : "unknown");
-    }
-}
-
-void ExecuteFile(const char* path)
-{
-    if (!g_ctx.luaState) {
-        std::printf("[-] OTP: lua_State not captured yet\n");
-        return;
-    }
-    g_ctx.pendingFile = path;
-}
-
-static void ProcessPendingFile()
-{
-    if (!g_ctx.pendingFile || !g_ctx.luaState) return;
-
-    const char* path  = g_ctx.pendingFile;
-    g_ctx.pendingFile = nullptr;
-
-    std::printf("[*] OTP: loading '%s'\n", path);
-
-    const int loadResult = g_ctx.fnLoadFile(g_ctx.luaState, path);
-    if (loadResult != 0) {
-        const char* err = g_ctx.fnToLString(g_ctx.luaState, -1, nullptr);
-        std::printf("[-] OTP: compile error: %s\n", err ? err : "unknown");
-        return;
-    }
-
-    std::printf("[*] OTP: executing...\n");
     const int execResult = g_ctx.fnPCall(g_ctx.luaState, 0, LUA_MULTRET, 0);
     if (execResult == 0)
         std::printf("[+] OTP: execution finished\n");
@@ -152,20 +110,6 @@ static void RegisterLuaFunctions()
 }
 
 // ================================================================
-// Helper macro for rising-edge hotkey detection
-// ================================================================
-
-#define DETECT_KEY(vk, flagVar, path)                              \
-    {                                                              \
-        bool _now = (GetAsyncKeyState(vk) & 0x8000) != 0;         \
-        if (_now && !(flagVar)) {                                  \
-            (flagVar) = true;                                      \
-            std::printf("[*] OTP: %s — loading %s\n", #vk, path); \
-            ExecuteFile(path);                                     \
-        } else if (!_now) { (flagVar) = false; }                   \
-    }
-
-// ================================================================
 // Hook callbacks
 // ================================================================
 
@@ -195,17 +139,11 @@ static void CallUpdate()
  */
 LARGE_INTEGER __cdecl Hook_Tick()
 {
-    DETECT_KEY(VK_F5, s_f5Pressed, "C:\\test1.txt")
-    DETECT_KEY(VK_F6, s_f6Pressed, "C:\\test2.txt")
-    DETECT_KEY(VK_F7, s_f7Pressed, "C:\\test3.txt")
-    DETECT_KEY(VK_F8, s_f8Pressed, "C:\\test4.txt")
-
     if (IsLuaThread()) {
         if (!s_functionsRegistered && g_ctx.luaState) {
             s_functionsRegistered = true;
             RegisterLuaFunctions();
         }
-        ProcessPendingFile();
         ProcessPendingCode();
         CallUpdate();
     }
@@ -249,12 +187,11 @@ bool InstallHooks()
     g_ctx.fnSetField    = reinterpret_cast<FnSetField>   (shared::AobScan("55 8B EC 83 E4 ? 83 EC ? 56 8B 75 ? 57 FF 75 ? 56 E8 ? ? ? ? 8B 55 ? 8B F8 8B CA 83 C4 ? 8D 41 ? 89 44 24 ? ? ? 41 84 C0 75 ? 2B 4C 24 ? 51 52 56 E8 ? ? ? ? 89 44 24 ? 8D 44 24 ? 50 57 56 C7 44 24 ? ? ? ? ? E8 ? ? ? ? 8B 56"));
     g_ctx.fnToInteger   = reinterpret_cast<FnToInteger>  (shared::AobScan("55 8B EC 83 E4 ? 83 EC ? FF 75 ? FF 75 ? E8 ? ? ? ? 83 C4 ? 8B 48 ? 83 F9 ? 73 ? ? ? ? ? F2 0F 2C C0 8B E5 5D C3 83 F9 ? 75 ? ? ? ? ? ? E8 ? ? ? ? 85 C0 74 ? ? ? ? ? ? F2 0F 2C C0 8B E5 5D C3 33 C0"));
     g_ctx.fnPCall       = reinterpret_cast<FnPCall>      (shared::AobScan("8B 54 24 ? 8B 44 24 ? 53 56"));
-    g_ctx.fnLoadFile    = reinterpret_cast<FnLoadFile>   (shared::AobScan("55 8B EC 83 E4 ? 81 EC ? ? ? ? A1 ? ? ? ? 33 C4 89 84 24 ? ? ? ? 56 8B 75 ? 57 8B 7D"));
     void* addrLoadBuffer = reinterpret_cast<void*>(shared::AobScan("55 8B EC 8B 45 ? 8B 0D ? ? ? ? 85 C9"));
     void* addrTick       = reinterpret_cast<void*>(shared::AobScan("55 8B EC 51 51 8D 45 ? 50 FF 15"));
 
-    if (!g_ctx.fnToLString  || !g_ctx.fnPushClosure || !g_ctx.fnSetField  ||
-        !g_ctx.fnToInteger  || !g_ctx.fnPCall        || !g_ctx.fnLoadFile ||
+    if (!g_ctx.fnToLString  || !g_ctx.fnPushClosure || !g_ctx.fnSetField ||
+        !g_ctx.fnToInteger  || !g_ctx.fnPCall        ||
         !addrLoadBuffer     || !addrTick) {
         std::printf("[-] OTP: one or more AOB scans failed\n");
         return false;

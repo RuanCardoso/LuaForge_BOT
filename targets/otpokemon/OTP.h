@@ -5,7 +5,6 @@
  * Estrutura idêntica ao PxG.h, adaptada para o OT Pokemon:
  *   - Convenção de chamada __cdecl
  *   - Tipos de retorno diferentes (int, const char*, LARGE_INTEGER)
- *   - Inclui FnLoadFile (carregamento direto de arquivo)
  *   - Padrões AOB específicos do executável do OT Pokemon
  */
 
@@ -36,7 +35,6 @@ using FnSetField     = void(__cdecl*)(lua_State* L, int idx, const char* name);
 using FnToInteger    = int(__cdecl*)(lua_State* L, int idx);
 using FnToLString    = const char*(__cdecl*)(lua_State* L, int idx, unsigned int* len);
 using FnLoadBuffer   = int(__cdecl*)(lua_State* L, const char* buff, size_t size, const char* name);
-using FnLoadFile     = int(__cdecl*)(lua_State* L, const char* filename);
 using FnPCall        = int(__cdecl*)(lua_State* L, int nargs, int nresults, int errfunc);
 using FnTick         = LARGE_INTEGER(__cdecl*)();
 
@@ -70,7 +68,6 @@ struct Context {
     uintptr_t      baseAddress   = 0;        // endereço base do módulo do jogo
     lua_State*     luaState      = nullptr;  // estado Lua capturado
     DWORD          luaThreadId   = 0;        // ID da thread que executa Lua
-    const char*    pendingFile   = nullptr;  // script aguardando execução
     std::string    pendingCode   = {};       // código Lua aguardando execução (via overlay)
 
     // Ponteiros de função — resolvidos via AOB em InstallHooks()
@@ -79,7 +76,6 @@ struct Context {
     FnToInteger    fnToInteger   = nullptr;  // lua_tointeger
     FnToLString    fnToLString   = nullptr;  // lua_tolstring
     FnLoadBuffer   fnLoadBuffer  = nullptr;  // luaL_loadbuffer (hookado)
-    FnLoadFile     fnLoadFile    = nullptr;  // luaL_loadfile
     FnPCall        fnPCall       = nullptr;  // lua_pcall
     FnTick         fnTick        = nullptr;  // tick do jogo (hookado)
 };
@@ -97,7 +93,7 @@ extern int g_mouseY;
 
 bool IsLuaThread();
 
-/* Enfileira código Lua (string) para execução na próxima iteração da thread Lua */
+/* Enfileira código Lua para execução na próxima iteração da thread Lua */
 void ExecuteString(const char* code);
 
 // ================================================================
@@ -128,7 +124,6 @@ int __cdecl Lua_GetCursorPos  (lua_State* L); // cpos()
 // Gerenciamento de hooks (implementado em OTP_Hooks.cpp)
 // ================================================================
 
-void ExecuteFile(const char* path);
 bool InstallHooks();
 
 } // namespace otp
