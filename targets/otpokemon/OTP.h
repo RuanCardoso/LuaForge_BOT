@@ -47,7 +47,8 @@ using FnTick         = LARGE_INTEGER(__cdecl*)();
 // OFF_CCLOSURE    ~ 0x40C1C0 | 56 8B 74 24 ? 8B 4E ? 8B 41 ? 3B 41 ? 72 ? 8B CE E8 ? ? ? ? 8B 46
 // OFF_SETFIELD    ~ 0x40C6C0 | 55 8B EC 83 E4 ? 83 EC ? 56 8B 75 ? 57 FF 75 ? 56 E8 ? ? ? ? 8B 55 ? 8B F8 8B CA 83 C4 ? 8D 41 ? 89 44 24 ? ? ? 41 84 C0 75 ? 2B 4C 24 ? 51 52 56 E8 ? ? ? ? 89 44 24 ? 8D 44 24 ? 50 57 56 C7 44 24 ? ? ? ? ? E8 ? ? ? ? 8B 56
 // OFF_TOINTEGER   ~ 0x40CA10 | 55 8B EC 83 E4 ? 83 EC ? FF 75 ? FF 75 ? E8 ? ? ? ? 83 C4 ? 8B 48 ? 83 F9 ? 73 ? ? ? ? ? F2 0F 2C C0 8B E5 5D C3 83 F9 ? 75 ? ? ? ? ? ? E8 ? ? ? ? 85 C0 74 ? ? ? ? ? ? F2 0F 2C C0 8B E5 5D C3 33 C0
-// OFF_LOADBUFFER  ~ 0x411550 | 55 8B EC 83 E4 ? 81 EC ? ? ? ? 8B 45 ? B9 ? ? ? ? 89 44 24 ? 8B 45 ? 89 44 24 ? 8D 44 24 ? 56
+// OFF_LOADBUFFER  ~ 0x13C1810 | scan via xref trampoline sub_13E8320 (E9 rel32 → sub_13C1810)
+//                              | E9 ? ? ? ? F8 81 EC ? ? ? ? 8B 45 ? B9 ? ? ? ? 89 44 24 ? 8B 45 ? 89 44 24 ? 8D 44 24
 // OFF_LOADFILE    ~ 0x4116B0 | 55 8B EC 83 E4 ? 81 EC ? ? ? ? A1 ? ? ? ? 33 C4 89 84 24 ? ? ? ? 56 8B 75 ? 57 8B 7D
 // OFF_PCALL       ~ 0x40C120 | 8B 54 24 ? 8B 44 24 ? 53 56
 // OFF_TICK        ~ 0x8218ED | 55 8B EC 51 51 8D 45 ? 50 FF 15

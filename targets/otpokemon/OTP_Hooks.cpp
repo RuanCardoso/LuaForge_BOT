@@ -9,6 +9,7 @@
 
 #include "OTP.h"
 #include "../shared/AobScanner.h"
+#include <cstring>
 
 namespace otp {
 
@@ -25,6 +26,118 @@ int g_mouseY = 0;
 // ================================================================
 
 static bool s_functionsRegistered = false;
+
+// ================================================================
+// Stack-walk spoof (anti-anticheat)
+// ================================================================
+//
+// The game protects luaL_loadbuffer (and 4 sibling APIs) with a runtime
+// dispatcher that calls RtlCaptureStackBackTrace and rejects any caller
+// whose return address falls outside the main executable's .text range.
+// Since our Hook_LoadBuffer lives in this injected DLL, every call we
+// make through fnLoadBuffer would be detected.
+//
+// The dispatcher invokes ntdll!RtlCaptureStackBackTrace via the game's
+// IAT (`call ds:...`). Redirecting that single IAT entry to a stub that
+// returns a fake stack of in-.text return addresses defeats the check
+// without touching the AC's own code (its monitor thread checks vtable
+// integrity, not the IAT).
+
+using FnRtlCSBT = USHORT (WINAPI*)(DWORD, DWORD, PVOID*, PDWORD);
+
+static FnRtlCSBT s_origRtlCSBT = nullptr;
+static PVOID     s_textAnchor  = nullptr;
+
+static USHORT WINAPI Hook_RtlCaptureStackBackTrace(DWORD skip, DWORD count, PVOID* trace, PDWORD hash)
+{
+    const DWORD n = (count > 8) ? 8 : count;
+    for (DWORD i = 0; i < n; ++i) trace[i] = s_textAnchor;
+    if (hash) *hash = 0;
+    return static_cast<USHORT>(n);
+}
+
+/* Returns an address inside .text that is preceded by an E8 byte —
+   satisfies both the range check and the "CALL opcode before retaddr"
+   sub-check (sub_13C15D0). */
+static PVOID FindCallSiteAnchor()
+{
+    HMODULE base = GetModuleHandleA(nullptr);
+    if (!base) return nullptr;
+
+    auto dos = reinterpret_cast<PIMAGE_DOS_HEADER>(base);
+    auto nt  = reinterpret_cast<PIMAGE_NT_HEADERS>(
+                  reinterpret_cast<BYTE*>(base) + dos->e_lfanew);
+    auto sec = IMAGE_FIRST_SECTION(nt);
+
+    for (WORD i = 0; i < nt->FileHeader.NumberOfSections; ++i, ++sec) {
+        if (std::memcmp(sec->Name, ".text", 5) != 0) continue;
+        BYTE* start = reinterpret_cast<BYTE*>(base) + sec->VirtualAddress;
+        const DWORD size = sec->Misc.VirtualSize;
+        for (DWORD j = 0; j + 5 < size; ++j) {
+            if (start[j] == 0xE8) return start + j + 5;
+        }
+    }
+    return nullptr;
+}
+
+static bool InstallStackSpoof()
+{
+    s_textAnchor = FindCallSiteAnchor();
+    if (!s_textAnchor) {
+        std::printf("[-] OTP: stack spoof — no E8 anchor found in .text\n");
+        return false;
+    }
+
+    HMODULE base = GetModuleHandleA(nullptr);
+    auto dos = reinterpret_cast<PIMAGE_DOS_HEADER>(base);
+    auto nt  = reinterpret_cast<PIMAGE_NT_HEADERS>(
+                  reinterpret_cast<BYTE*>(base) + dos->e_lfanew);
+    const DWORD impRVA =
+        nt->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_IMPORT].VirtualAddress;
+    if (!impRVA) {
+        std::printf("[-] OTP: stack spoof — no import directory\n");
+        return false;
+    }
+
+    auto desc = reinterpret_cast<PIMAGE_IMPORT_DESCRIPTOR>(
+                    reinterpret_cast<BYTE*>(base) + impRVA);
+
+    for (; desc->Name; ++desc) {
+        auto thunkOrig = reinterpret_cast<PIMAGE_THUNK_DATA>(
+                             reinterpret_cast<BYTE*>(base) + desc->OriginalFirstThunk);
+        auto thunkReal = reinterpret_cast<PIMAGE_THUNK_DATA>(
+                             reinterpret_cast<BYTE*>(base) + desc->FirstThunk);
+
+        for (; thunkOrig->u1.AddressOfData; ++thunkOrig, ++thunkReal) {
+            if (thunkOrig->u1.Ordinal & IMAGE_ORDINAL_FLAG) continue;
+
+            auto imp = reinterpret_cast<PIMAGE_IMPORT_BY_NAME>(
+                           reinterpret_cast<BYTE*>(base) + thunkOrig->u1.AddressOfData);
+            if (lstrcmpA(reinterpret_cast<const char*>(imp->Name),
+                         "RtlCaptureStackBackTrace") != 0) continue;
+
+            DWORD oldProt = 0;
+            if (!VirtualProtect(&thunkReal->u1.Function, sizeof(uintptr_t),
+                                PAGE_READWRITE, &oldProt)) {
+                std::printf("[-] OTP: stack spoof — VirtualProtect failed\n");
+                return false;
+            }
+
+            s_origRtlCSBT = reinterpret_cast<FnRtlCSBT>(thunkReal->u1.Function);
+            thunkReal->u1.Function =
+                reinterpret_cast<uintptr_t>(&Hook_RtlCaptureStackBackTrace);
+
+            VirtualProtect(&thunkReal->u1.Function, sizeof(uintptr_t),
+                           oldProt, &oldProt);
+
+            std::printf("[+] OTP: stack spoof installed (anchor=%p)\n", s_textAnchor);
+            return true;
+        }
+    }
+
+    std::printf("[-] OTP: RtlCaptureStackBackTrace not found in IAT\n");
+    return false;
+}
 
 // ================================================================
 // External script execution
@@ -164,7 +277,16 @@ int __cdecl Hook_LoadBuffer(lua_State* L, const char* buff, size_t size, const c
             static_cast<void*>(L), g_ctx.luaThreadId);
     }
 
-    return g_ctx.fnLoadBuffer(L, buff, size, name);
+    static LONG s_callCount = 0;
+    const LONG  callN       = InterlockedIncrement(&s_callCount);
+    std::printf("[*] OTP: Hook_LoadBuffer #%ld | name=\"%s\" | size=%zu\n",
+        callN, name ? name : "(null)", size);
+
+    const int result = g_ctx.fnLoadBuffer(L, buff, size, name);
+    if (result != 0)
+        std::printf("[-] OTP: Hook_LoadBuffer #%ld returned error %d\n", callN, result);
+
+    return result;
 }
 
 // ================================================================
@@ -180,6 +302,11 @@ bool InstallHooks()
     freopen_s(&file, "CONIN$",  "r", stdin);
     SetConsoleTitleA("LuaForge — OTP");
 
+    if (!InstallStackSpoof()) {
+        std::printf("[-] OTP: aborting — stack spoof required to bypass AC\n");
+        return false;
+    }
+
     g_ctx.baseAddress = reinterpret_cast<uintptr_t>(GetModuleHandle(nullptr));
 
     g_ctx.fnToLString   = reinterpret_cast<FnToLString>  (shared::AobScan("56 8B 74 24 ? 57 8B 7C 24 ? 56 57 E8 ? ? ? ? 83 C4 ? 8B 48 ? 83 F9 ? 75 ? ? ? EB ? 83 F9 ? 77 ? 8B 4F ? 8B 41 ? 3B 41 ? 72 ? 8B CF E8 ? ? ? ? 56 57 E8 ? ? ? ? 83 C4 ? 8B F0 8B D6 8B CF E8 ? ? ? ? ? ? C7 46 ? ? ? ? ? 8B 54 24 ? 85 D2 74 ? 8B 48 ? ? ? 5F 83 C0 ? 5E C3 8B 44 24"));
@@ -187,7 +314,16 @@ bool InstallHooks()
     g_ctx.fnSetField    = reinterpret_cast<FnSetField>   (shared::AobScan("55 8B EC 83 E4 ? 83 EC ? 56 8B 75 ? 57 FF 75 ? 56 E8 ? ? ? ? 8B 55 ? 8B F8 8B CA 83 C4 ? 8D 41 ? 89 44 24 ? ? ? 41 84 C0 75 ? 2B 4C 24 ? 51 52 56 E8 ? ? ? ? 89 44 24 ? 8D 44 24 ? 50 57 56 C7 44 24 ? ? ? ? ? E8 ? ? ? ? 8B 56"));
     g_ctx.fnToInteger   = reinterpret_cast<FnToInteger>  (shared::AobScan("55 8B EC 83 E4 ? 83 EC ? FF 75 ? FF 75 ? E8 ? ? ? ? 83 C4 ? 8B 48 ? 83 F9 ? 73 ? ? ? ? ? F2 0F 2C C0 8B E5 5D C3 83 F9 ? 75 ? ? ? ? ? ? E8 ? ? ? ? 85 C0 74 ? ? ? ? ? ? F2 0F 2C C0 8B E5 5D C3 33 C0"));
     g_ctx.fnPCall       = reinterpret_cast<FnPCall>      (shared::AobScan("8B 54 24 ? 8B 44 24 ? 53 56"));
-    void* addrLoadBuffer = reinterpret_cast<void*>(shared::AobScan("55 8B EC 8B 45 ? 8B 0D ? ? ? ? 85 C9"));
+    // Scan finds sub_13E8320 (trampoline: "jmp sub_13C1810").
+    // Follow the E9 rel32 to resolve the real dispatcher address (sub_13C1810).
+    const uintptr_t addrTrampoline = shared::AobScan(
+        "E9 ? ? ? ? F8 81 EC ? ? ? ? 8B 45 ? B9 ? ? ? ? 89 44 24 ? "
+        "8B 45 ? 89 44 24 ? 8D 44 24");
+    void* addrLoadBuffer = nullptr;
+    if (addrTrampoline) {
+        const int32_t rel = *reinterpret_cast<const int32_t*>(addrTrampoline + 1);
+        addrLoadBuffer = reinterpret_cast<void*>(addrTrampoline + 5 + rel);
+    }
     void* addrTick       = reinterpret_cast<void*>(shared::AobScan("55 8B EC 51 51 8D 45 ? 50 FF 15"));
 
     if (!g_ctx.fnToLString  || !g_ctx.fnPushClosure || !g_ctx.fnSetField ||

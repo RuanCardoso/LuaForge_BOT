@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__IDA-Pro__decompile",
+      "mcp__IDA-Pro__disasm",
+      "mcp__IDA-Pro__xrefs_to",
+      "mcp__IDA-Pro__get_bytes",
+      "mcp__IDA-Pro__py_eval"
+    ]
+  }
+}
